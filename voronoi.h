@@ -7,6 +7,7 @@
 #include "points.h"
 #include "vedge.h"
 #include "chardraw.h"
+#include "quickhull.h"
 
 extern double screenWidth;
 extern double screenHeight;
@@ -29,6 +30,7 @@ private:
     bool isIntersecting(VoronoiEdge,VoronoiEdge);
     double intersectingY(VoronoiEdge,VoronoiEdge);
     void getMinMaxPoints(int,int,int,int&,int&,int&,int&);
+
 public:
     std::vector<Point3> sites;
     std::vector<VoronoiEdge> vedges;
@@ -38,7 +40,8 @@ public:
     void buildVoronoiDiagram();
     std::vector<VoronoiEdge> splitSites(int,int);
     std::vector<VoronoiEdge> mergeSites(int,int,int,std::vector<VoronoiEdge>,std::vector<VoronoiEdge>);
-
+    void getUpperSupport(int,int,int,int&,int&);
+    void getLowerSupport(int,int,int,int&,int&);
     void drawSites();
     void drawVoronoiEdges();
     void draw();
@@ -69,6 +72,123 @@ bool Voronoi::isIntersecting(VoronoiEdge a,VoronoiEdge b)
 double Voronoi::intersectingY(VoronoiEdge a,VoronoiEdge b)
 {
     return (a.slope*b.yIntercept-a.yIntercept*b.slope)/(a.slope-b.slope);
+}
+void Voronoi::getLowerSupport(int s,int m,int e,int &left,int &right)
+{
+    /*
+    QuickHull leftHull(std::vector<Point3>(sites.begin()+s,sites.begin()+m+1));
+    QuickHull rightHull(std::vector<Point3>(sites.begin()+m+1,sites.begin()+e+1));
+    printf("finding hull for lower support %d-%d\n",
+           leftHull.resultPoints[0].index,leftHull.resultPoints[leftHull.resultPoints.size()-1].index);
+    //std::vector<Point3> hull=QuickHull
+    */
+    printf("inside getLowerSupport()\n");
+    QuickHull leftHull(std::vector<Point3>(sites.begin()+s,sites.begin()+m+1));
+    QuickHull rightHull(std::vector<Point3>(sites.begin()+m+1,sites.begin()+e+1));
+   // printf("finding hull for lower support %d-%d\n",
+        //   rightHull.resultPoints[0].index,rightHull.resultPoints[rightHull.resultPoints.size()-1].index);
+    int leftInd=0;
+    int rightInd=0;
+
+    ///point with max and min value of x from right and left hull
+    double currentX=leftHull.resultPoints[0].x;
+    for(int i=1;i<leftHull.resultPoints.size();i++)
+    {
+        if(currentX<leftHull.resultPoints[i].x)
+        {
+            currentX=leftHull.resultPoints[i].x;
+            //leftInd=leftHull.resultPoints[i].index;
+            leftInd=i;
+        }
+    }
+    currentX=rightHull.resultPoints[0].x;
+    for(int i=1;i<rightHull.resultPoints.size();i++)
+    {
+        if(currentX>rightHull.resultPoints[i].x)
+        {
+            currentX=rightHull.resultPoints[i].x;
+            //rightInd=rightHull.resultPoints[i].index;
+            rightInd=i;
+        }
+    }
+
+    Vector3 line(leftHull.resultPoints[leftInd],rightHull.resultPoints[rightInd]);
+    int leftSize=leftHull.resultPoints.size();
+    int next=(leftInd+1)%leftSize;
+    while((line.zcross(Vector3(leftHull.resultPoints[leftInd],leftHull.resultPoints[next])))<0)
+    {
+        leftInd=next;
+        next=(next+1)%leftSize;
+        line=Vector3(leftHull.resultPoints[leftInd],rightHull.resultPoints[rightInd]);
+    }
+    left=leftHull.resultPoints[leftInd].index;
+    int rightSize=rightHull.resultPoints.size();
+    next=(rightInd+1)%rightSize;
+    while((line.zcross(Vector3(leftHull.resultPoints[leftInd],rightHull.resultPoints[next])))<0)
+    {
+        rightInd=next;
+        next=(next+1)%rightSize;
+        line=Vector3(leftHull.resultPoints[leftInd],rightHull.resultPoints[rightInd]);
+    }
+    right=rightHull.resultPoints[rightInd].index;
+    printf("left %d , right %d\n",left,right);
+}
+
+void Voronoi::getUpperSupport(int s,int m,int e,int &left,int &right)
+{
+    printf("inside getUpperSupport()\n");
+    QuickHull leftHull(std::vector<Point3>(sites.begin()+s,sites.begin()+m+1));
+    QuickHull rightHull(std::vector<Point3>(sites.begin()+m+1,sites.begin()+e+1));
+    //printf("finding hull for upper support %d-%d\n",
+    //       rightHull.resultPoints[0].index,rightHull.resultPoints[rightHull.resultPoints.size()-1].index);
+    int leftInd=0;
+    int rightInd=0;
+
+    ///point with max and min value of x from right and left hull
+    double currentX=leftHull.resultPoints[0].x;
+    for(int i=1;i<leftHull.resultPoints.size();i++)
+    {
+        if(currentX<leftHull.resultPoints[i].x)
+        {
+            currentX=leftHull.resultPoints[i].x;
+            //leftInd=leftHull.resultPoints[i].index;
+            leftInd=i;
+        }
+    }
+    currentX=rightHull.resultPoints[0].x;
+    for(int i=1;i<rightHull.resultPoints.size();i++)
+    {
+        if(currentX>rightHull.resultPoints[i].x)
+        {
+            currentX=rightHull.resultPoints[i].x;
+            //rightInd=rightHull.resultPoints[i].index;
+            rightInd=i;
+        }
+    }
+    ///finding upper bridge
+    Vector3 line(leftHull.resultPoints[leftInd],rightHull.resultPoints[rightInd]);
+    int leftSize=leftHull.resultPoints.size();
+    int nextLeft=(leftInd+1)%leftSize;
+    double leftCross = line.zcross(Vector3(leftHull.resultPoints[leftInd],leftHull.resultPoints[nextLeft]));
+    while(leftCross>0)
+    {
+        leftInd=nextLeft;
+        nextLeft=(nextLeft+1)%leftSize;
+        leftCross = line.zcross(Vector3(leftHull.resultPoints[leftInd],leftHull.resultPoints[nextLeft]));
+    }
+    left=leftHull.resultPoints[leftInd].index;
+    int rightSize=rightHull.resultPoints.size();
+    int nextRight=(rightInd+1)%rightSize;
+    double rightCross=line.zcross(Vector3(leftHull.resultPoints[leftInd],rightHull.resultPoints[nextRight]));
+    while(rightCross>0)
+    {
+        rightInd=nextRight;
+        nextRight=(nextRight+1)%rightSize;
+        rightCross=line.zcross(Vector3(leftHull.resultPoints[leftInd],rightHull.resultPoints[nextRight]));
+    }
+    right=rightHull.resultPoints[rightInd].index;
+    printf("left %d , right %d\n",left,right);
+    //std::vector<Point3> hull=QuickHull
 }
 void Voronoi::getMinMaxPoints(int s,int m,int e,int &minL,int &maxL,int &minR,int &maxR)
 {
@@ -118,6 +238,10 @@ void Voronoi::takeInput()
 void Voronoi::buildVoronoiDiagram()
 {
     std::sort(sites.begin(),sites.end(),pointCompr);
+    for(int i=0;i<sites.size();i++)
+    {
+        sites[i].index=i;
+    }
     //splitSites(0,sites.size()-1);
     std::vector<VoronoiEdge> leftEdges;
     std::vector<VoronoiEdge> rightEdges;
@@ -176,10 +300,15 @@ std::vector<VoronoiEdge> Voronoi::mergeSites(int s,int m,int e,
 {
     printf("merging %d-%d\n",s,e);
     std::vector<VoronoiEdge> result;
-    int minLeft,minRight,maxLeft,maxRight;
-    getMinMaxPoints(s,m,e,minLeft,maxLeft,minRight,maxRight);
-    printf("minL=%d, maxL=%d -- minR=%d, maxR=%d\n\n",minLeft,maxLeft,minRight,maxRight);
-    int curLeft=maxLeft,curRight=maxRight;
+    int downLeft,downRight,upLeft,upRight;
+    getLowerSupport(s,m,e,downLeft,downRight);
+    getUpperSupport(s,m,e,upLeft,upRight);
+    getMinMaxPoints(s,m,e,downLeft,upLeft,downRight,upRight);
+    printf("downL=%d, downR=%d -- upL=%d, upR=%d\n\n",downLeft,downRight,upLeft,upRight);
+
+    //change using convex hull
+    int curLeft=upLeft,curRight=upRight;
+
     int oldLeft,oldRight;
     int limit = (s-e+1)*(s-e+1);
     int iteration = 0;
@@ -192,14 +321,14 @@ std::vector<VoronoiEdge> Voronoi::mergeSites(int s,int m,int e,
     std::vector<VoronoiEdge> chain;
     double lastX;
 
-    while(!(curLeft==minLeft&&curRight==minRight))
+    while(!(curLeft==downLeft&&curRight==downRight))
     {
         printf("curLeft=%d,curRight=%d\n",curLeft,curRight);
         oldLeft=curLeft;
         oldRight=curRight;
         if(++iteration>limit)
         {
-            //break;
+            break;
         }
         VoronoiEdge ed;
         ed.slope=(sites[curLeft].x-sites[curRight].x)/(sites[curRight].y-sites[curLeft].y);
@@ -237,7 +366,7 @@ std::vector<VoronoiEdge> Voronoi::mergeSites(int s,int m,int e,
 
         int leftIntersection,rightIntersection;
         double y,minLeftY=0,minRightY=0;
-        //minLeftY=intersectingY(e,vRegions[curLeft][0]);
+        //upLeftY=intersectingY(e,vRegions[curLeft][0]);
         bool isLeftUnset=true;
         //printf("vRegions[curleft].size=%d\n",vRegions[curLeft].size());
 
@@ -319,7 +448,15 @@ std::vector<VoronoiEdge> Voronoi::mergeSites(int s,int m,int e,
                 ed.isRightInf=false;
                 ed.right=vedges[leftIntersection].right;
             }
-            curLeft=vedges[leftIntersection].downSiteIndex;
+            if(curLeft==vedges[leftIntersection].downSiteIndex)
+            //if(false)
+            {
+                curLeft=vedges[leftIntersection].upSiteIndex;
+            }
+            else
+            {
+                curLeft=vedges[leftIntersection].downSiteIndex;
+            }
             vedges.push_back(ed);
             //isEdgeChecked[vedges.size()-1]=true;
             vRegions[oldLeft].push_back(vedges.size()-1);
@@ -350,7 +487,15 @@ std::vector<VoronoiEdge> Voronoi::mergeSites(int s,int m,int e,
                 ed.isRightInf=false;
                 ed.right=vedges[rightIntersection].left;
             }
-            curRight=vedges[rightIntersection].downSiteIndex;
+            if(curRight==vedges[rightIntersection].downSiteIndex)
+            //if(false)
+            {
+                curRight=vedges[rightIntersection].upSiteIndex;
+            }
+            else
+            {
+                curRight=vedges[rightIntersection].downSiteIndex;
+            }
             vedges.push_back(ed);
             //isEdgeChecked[vedges.size()-1]=true;
             vRegions[oldRight].push_back(vedges.size()-1);
@@ -441,15 +586,16 @@ void Voronoi::drawSites()
         Misc::drawString((int)sites[i].x,(int)sites[i].y,num);
     }
 }
+
 void Voronoi::drawVoronoiEdges()
 {
     double x1,y1,x2,y2;
 
     //vedges[0].right=new double(9.0);
-    printf("\n\n");
+    //printf("\n\n");
     for(int i=0; i<vedges.size(); i++)
     {
-        printf("drawing vedge%d\n",i);
+        //printf("drawing vedge%d\n",i);
         glColor3f(0,0,0);
         if(vedges[i].isLeftInf)
         {
@@ -481,58 +627,9 @@ void Voronoi::drawVoronoiEdges()
             glVertex2f(x2,y2);
         }
         glEnd();
-        //printf("vedges%d >>> x1=%5.3lf,y1=%5.3lf >>> x2=%5.3lf,y2=%5.3lf\n",i,x1,y1,x2,y2);
-        //Misc::drawString(x1,y1,i);
-        //Misc::drawString(x2,y2,i);
     }
-
-
-    /*
-    glColor3f(0,1,0);
-    for(int i=0; i<sites.size(); i++)
-    {
-        for(int j=0; j<vRegions[i].size(); j++)
-        {
-            if((vRegions[i][j].left)==NULL)
-            {
-                //printf("left null\n");
-                x1=-screenWidth/2;
-                y1=vRegions[i][j].slope*x1+vRegions[i][j].yIntercept;
-            }
-            else
-            {
-                //printf("leftX=%lf\n",*(vedges[i].leftX));
-                x1=*(vRegions[i][j].left);
-                y1=vRegions[i][j].slope*x1+vRegions[i][j].yIntercept;
-            }
-            if((vRegions[i][j].right)==NULL)
-            {
-                printf("right at infinity\n");
-                glColor3f(1,0,0);
-                x2=screenWidth/2;
-                y2=vRegions[i][j].slope*x2+vRegions[i][j].yIntercept;
-            }
-            else
-            {
-                printf("right at finite\n");
-                glColor3f(0,0,0);
-                x2=*(vRegions[i][j].right);
-                y2=vRegions[i][j].slope*x2+vRegions[i][j].yIntercept;
-            }
-            glBegin(GL_LINES);
-            {
-                glVertex2f(x1,y1);
-                glVertex2f(x2,y2);
-            }
-            glEnd();
-            //Misc::drawString(x1,y1,"e");
-            //Misc::drawString(x2,y2,"e");
-            printf("vRegions >>> x1=%5.3lf,y1=%5.3lf >>> x2=%5.3lf,y2=%5.3lf\n",x1,y1,x2,y2);
-        }
-    }
-    */
-
 }
+
 void Voronoi::draw()
 {
     drawSites();

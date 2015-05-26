@@ -2,13 +2,20 @@
 #define CUSTOMTYPES_H
 
 #include <cmath>
-
+#include "points.h"
 struct Vector3
 {
     double x;
     double y;
     double z;
+
     Vector3() {}
+    Vector3(Point3 s,Point3 e)
+    {
+        x=e.x-s.x;
+        y=e.y-s.y;
+        z=e.z-s.z;
+    }
     Vector3(double a, double b, double c)
     {
         x=a;
